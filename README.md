@@ -1,6 +1,6 @@
 # Apify
 
-Ruby client for the [Apify API v2](https://docs.apify.com/api/v2). Runs actors, returns raw Apify responses, and handles retries and typed errors.
+Ruby client for the [Apify API v2](https://docs.apify.com/api/v2). Runs actors, returns raw Apify responses, and raises typed errors for Apify API failures. Retries are opt-in via configuration.
 
 Distributed as a private gem via GitHub (same pattern as [openfactura-ruby](https://github.com/EmeralHQ/openfactura-ruby)).
 
@@ -31,8 +31,17 @@ Apify.configure do |config|
   config.api_token = ENV.fetch("APIFY_API_TOKEN")
   config.read_timeout = 310
   config.logger = Rails.logger
+  # Optional: retry transient/rate-limit errors (default max_retries is 0)
+  config.max_retries = 2
+  config.retry_base_delay = 1
 end
 ```
+
+## Errors
+
+Failed API responses are classified from HTTP status and Apify's `error.type` field (e.g. `rate-limit-exceeded` on HTTP 400) and raised as typed exceptions such as `Apify::AuthenticationError`, `Apify::BillingError`, `Apify::RateLimitError`, and `Apify::TransientError`.
+
+Retries are disabled by default. Set `config.max_retries` to enable exponential backoff for retryable errors.
 
 ## Usage
 
