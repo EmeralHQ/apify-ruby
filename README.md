@@ -2,7 +2,7 @@
 
 Ruby client for the [Apify API v2](https://docs.apify.com/api/v2). Runs actors, returns raw Apify responses, and raises typed errors for Apify API failures. Retries are opt-in via configuration.
 
-Distributed as a private gem via GitHub (same pattern as [openfactura-ruby](https://github.com/EmeralHQ/openfactura-ruby)).
+Distributed as a private gem via GitHub.
 
 ## Installation
 
