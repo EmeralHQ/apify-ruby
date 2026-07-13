@@ -2,36 +2,36 @@
 
 RSpec.describe Apify::Actors do
   let(:linkedin_url) { "https://www.linkedin.com/in/williamhgates" }
-  let(:input) { { profileUrls: [ linkedin_url ] } }
+  let(:input) { { profileUrls: [linkedin_url] } }
 
   describe "#run_sync_get_dataset_items" do
     it "returns dataset items on success" do
       profile = { "fullName" => "Bill Gates", "linkedinUrl" => linkedin_url }
-      stub_sync_dataset_items_success(body: [ profile ].to_json)
+      stub_sync_dataset_items_success(body: [profile].to_json)
 
       items = described_class.new(Apify.client).run_sync_get_dataset_items(
         actor_id: ApifyHelpers::ACTOR_ID,
         input: input
       )
 
-      expect(items).to eq([ profile ])
+      expect(items).to eq([profile])
     end
 
     it "raises configuration error when api token is missing" do
       Apify.reset!
       Apify.configure { |config| config.api_token = nil }
 
-      expect {
+      expect do
         Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
-      }.to raise_error(Apify::ConfigurationError, "API token is required")
+      end.to raise_error(Apify::ConfigurationError, "API token is required")
     end
 
     it "raises authentication error when apify responds with 401" do
       stub_sync_dataset_items_error(status: 401, body: "Unauthorized")
 
-      expect {
+      expect do
         Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
-      }.to raise_error(Apify::AuthenticationError)
+      end.to raise_error(Apify::AuthenticationError)
 
       expect(WebMock).to have_requested(:post, sync_dataset_items_url).once
     end
@@ -45,9 +45,9 @@ RSpec.describe Apify::Actors do
       }.to_json
       stub_sync_dataset_items_error(status: 402, body: body)
 
-      expect {
+      expect do
         Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
-      }.to raise_error(Apify::BillingError) { |error|
+      end.to raise_error(Apify::BillingError) { |error|
         expect(error.message).to eq("Not enough usage to run paid Actor")
       }
 
@@ -63,9 +63,9 @@ RSpec.describe Apify::Actors do
       }.to_json
       stub_sync_dataset_items_error(status: 408, body: body)
 
-      expect {
+      expect do
         Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
-      }.to raise_error(Apify::TimeoutError) { |error|
+      end.to raise_error(Apify::TimeoutError) { |error|
         expect(error.message).to include("300 seconds")
       }
 
@@ -75,9 +75,9 @@ RSpec.describe Apify::Actors do
     it "does not retry by default on HTTP 503" do
       stub_sync_dataset_items_error(status: 503, body: "Service Unavailable")
 
-      expect {
+      expect do
         Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
-      }.to raise_error(Apify::TransientError)
+      end.to raise_error(Apify::TransientError)
 
       expect(WebMock).to have_requested(:post, sync_dataset_items_url).once
     end
@@ -91,9 +91,9 @@ RSpec.describe Apify::Actors do
       }.to_json
       stub_sync_dataset_items_error(status: 400, body: rate_limit_body)
 
-      expect {
+      expect do
         Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
-      }.to raise_error(Apify::RateLimitError)
+      end.to raise_error(Apify::RateLimitError)
 
       expect(WebMock).to have_requested(:post, sync_dataset_items_url).once
     end
@@ -121,11 +121,11 @@ RSpec.describe Apify::Actors do
           .with(headers: { "Authorization" => "Bearer test-apify-token" })
           .to_return(status: 400, body: rate_limit_body)
           .then
-          .to_return(status: 200, body: [ profile ].to_json)
+          .to_return(status: 200, body: [profile].to_json)
 
         items = Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
 
-        expect(items).to eq([ profile ])
+        expect(items).to eq([profile])
         expect(WebMock).to have_requested(:post, sync_dataset_items_url).twice
       end
 
@@ -136,11 +136,11 @@ RSpec.describe Apify::Actors do
           .with(headers: { "Authorization" => "Bearer test-apify-token" })
           .to_return(status: 503, body: "Service Unavailable")
           .then
-          .to_return(status: 200, body: [ profile ].to_json)
+          .to_return(status: 200, body: [profile].to_json)
 
         items = Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
 
-        expect(items).to eq([ profile ])
+        expect(items).to eq([profile])
         expect(WebMock).to have_requested(:post, sync_dataset_items_url).twice
       end
 
@@ -153,11 +153,11 @@ RSpec.describe Apify::Actors do
           .then
           .to_raise(Net::ReadTimeout)
           .then
-          .to_return(status: 200, body: [ profile ].to_json)
+          .to_return(status: 200, body: [profile].to_json)
 
         items = Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
 
-        expect(items).to eq([ profile ])
+        expect(items).to eq([profile])
         expect(WebMock).to have_requested(:post, sync_dataset_items_url).times(3)
       end
 
@@ -166,9 +166,9 @@ RSpec.describe Apify::Actors do
           .with(headers: { "Authorization" => "Bearer test-apify-token" })
           .to_return(status: 503, body: "Service Unavailable")
 
-        expect {
+        expect do
           Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
-        }.to raise_error(Apify::TransientError) { |error|
+        end.to raise_error(Apify::TransientError) { |error|
           expect(error.message).to include("HTTP 503")
         }
 
@@ -179,9 +179,9 @@ RSpec.describe Apify::Actors do
     it "raises parse error when response is not a JSON array" do
       stub_sync_dataset_items_success(body: { "unexpected" => "object" }.to_json)
 
-      expect {
+      expect do
         Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
-      }.to raise_error(Apify::ParseError, "Unexpected response format from Apify")
+      end.to raise_error(Apify::ParseError, "Unexpected response format from Apify")
     end
   end
 end
