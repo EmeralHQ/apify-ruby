@@ -8,6 +8,7 @@ AllCops:
   Exclude:
     - "bin/**/*"
     - "sig/**/*"
+    - "vendor/**/*"
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes
