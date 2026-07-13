@@ -43,6 +43,20 @@ Failed API responses are classified from HTTP status and Apify's `error.type` fi
 
 Retries are disabled by default. Set `config.max_retries` to enable exponential backoff for retryable errors.
 
+## Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `api_token` | String | `nil` | **Required.** Your Apify API token |
+| `base_url` | String | `"https://api.apify.com/v2"` | Apify API base URL |
+| `open_timeout` | Integer | `10` | Connection open timeout in seconds |
+| `read_timeout` | Integer | `310` | Response read timeout in seconds |
+| `max_retries` | Integer | `0` | Number of retries for transient/rate-limit errors (0 disables retries) |
+| `retry_base_delay` | Integer | `1` | Base delay in seconds for exponential backoff between retries |
+| `logger` | Object | `nil` | Logger used to record retry/error events |
+| `user_agent` | String | `"ApifyRuby/<version>"` | User-Agent header sent with requests |
+| `sleep_fn` | Proc | `->(seconds) { sleep(seconds) }` | Sleep implementation used between retries (override for testing) |
+
 ## Usage
 
 ```ruby
