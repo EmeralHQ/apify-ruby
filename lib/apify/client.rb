@@ -9,6 +9,17 @@ module Apify
   class Client
     include HTTParty
 
+    NETWORK_ERRORS = [
+      Errno::ECONNREFUSED,
+      Errno::ECONNRESET,
+      Errno::EHOSTUNREACH,
+      Errno::EPIPE,
+      SocketError,
+      EOFError,
+      IOError,
+      Net::HTTPBadResponse
+    ].freeze
+
     def initialize(config: Config.config, retry_policy: nil)
       @config = config
       Config.validate!
@@ -35,6 +46,8 @@ module Apify
       raise TransientError, "Request timeout: #{e.message}"
     rescue OpenSSL::SSL::SSLError => e
       raise TransientError, "SSL error: #{e.message}"
+    rescue *NETWORK_ERRORS => e
+      raise TransientError, "Network error: #{e.class}: #{e.message}"
     end
 
     def post_request(path, input, read_timeout:)
