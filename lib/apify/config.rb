@@ -16,8 +16,8 @@ module Apify
     setting :user_agent, default: "ApifyRuby/#{Apify::VERSION}"
     setting :sleep_fn, default: ->(seconds) { sleep(seconds) }
 
-    def self.validate!
-      raise ConfigurationError, "API token is required" if config.api_token.to_s.strip.empty?
+    def self.validate!(target = config)
+      raise ConfigurationError, "API token is required" if target.api_token.to_s.strip.empty?
     end
   end
 end
