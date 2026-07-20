@@ -1,4 +1,89 @@
 module Apify
   VERSION: String
-  # See the writing guide of rbs: https://github.com/ruby/rbs#guides
+
+  def self.configure: () { (untyped) -> void } -> void
+  def self.config: () -> untyped
+  def self.client: () -> Client
+  def self.actors: () -> Actors
+  def self.reset!: () -> void
+
+  class Config
+    def self.configure: () { (untyped) -> void } -> void
+    def self.config: () -> untyped
+    def self.validate!: (?untyped target) -> void
+  end
+
+  class Client
+    NETWORK_ERRORS: Array[Class]
+    ACTOR_ID_FORMAT: Regexp
+
+    def initialize: (?config: untyped, ?retry_policy: RetryPolicy?) -> void
+
+    def post_sync_dataset_items: (untyped actor_id, Hash[untyped, untyped] input, ?read_timeout: Numeric?) -> Array[Hash[String, untyped]]
+  end
+
+  class Actors
+    def initialize: (Client client) -> void
+
+    def run_sync_get_dataset_items: (actor_id: untyped, input: Hash[untyped, untyped], ?read_timeout: Numeric?) -> Array[Hash[String, untyped]]
+  end
+
+  class RetryPolicy
+    def initialize: (?config: untyped) -> void
+
+    def call: (?context: String) { () -> untyped } -> untyped
+  end
+
+  class ErrorClassifier
+    RATE_LIMIT_ERROR_TYPES: Array[String]
+    AUTH_ERROR_TYPES: Array[String]
+    BILLING_ERROR_TYPES: Array[String]
+    TIMEOUT_ERROR_TYPES: Array[String]
+
+    def self.parse_error_body: (String? response_body) -> { type: String?, message: String? }?
+
+    def self.classify: (http_code: untyped, fallback_message: String?, ?error_type: String?) -> { retryable: bool, code: String, message: String? }
+
+    def self.raise_from_response!: (http_code: untyped, response_body: String?, ?fallback_message: String?, ?retry_after: untyped) -> bot
+  end
+
+  class Error < StandardError
+  end
+
+  class ConfigurationError < Error
+  end
+
+  class ParseError < Error
+  end
+
+  class ApiError < Error
+    attr_reader status_code: untyped
+    attr_reader response_body: untyped
+    attr_reader error_type: untyped
+    attr_reader code: untyped
+    attr_reader retry_after: untyped
+
+    def initialize: (String message, ?status_code: untyped, ?response_body: untyped, ?error_type: untyped, ?code: String, ?retry_after: untyped) -> void
+
+    def retryable?: () -> bool
+  end
+
+  class TransientError < ApiError
+    def retryable?: () -> bool
+  end
+
+  class RateLimitError < TransientError
+  end
+
+  class AuthenticationError < ApiError
+    def initialize: (?String message, ?status_code: untyped, ?response_body: untyped, ?error_type: untyped) -> void
+  end
+
+  class BillingError < ApiError
+    def initialize: (?String message, ?status_code: untyped, ?response_body: untyped, ?error_type: untyped) -> void
+  end
+
+  class TimeoutError < ApiError
+    def initialize: (?String message, ?status_code: untyped, ?response_body: untyped, ?error_type: untyped) -> void
+  end
 end

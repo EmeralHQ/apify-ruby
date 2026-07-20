@@ -5,6 +5,7 @@ require_relative "apify/version"
 require "zeitwerk"
 
 loader = Zeitwerk::Loader.for_gem
+loader.ignore("#{__dir__}/apify/version.rb")
 loader.setup
 
 require_relative "apify/error"
