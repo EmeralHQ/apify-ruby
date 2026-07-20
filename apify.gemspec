@@ -34,6 +34,5 @@ Gem::Specification.new do |spec|
 
   # Runtime dependencies
   spec.add_dependency "dry-configurable", "~> 1.0"
-  spec.add_dependency "httparty", "~> 0.21"
   spec.add_dependency "zeitwerk", "~> 2.6"
 end
