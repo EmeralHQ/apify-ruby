@@ -222,5 +222,21 @@ RSpec.describe Apify::Actors do
         Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
       end.to raise_error(Apify::ParseError, "Unexpected response format from Apify")
     end
+
+    it "raises argument error and makes no request for a path-traversal actor_id" do
+      expect do
+        Apify.actors.run_sync_get_dataset_items(actor_id: "foo/../../otra-ruta", input: input)
+      end.to raise_error(ArgumentError, /Invalid Apify actor_id/)
+
+      expect(WebMock).not_to have_requested(:post, /apify/)
+    end
+
+    it "raises argument error and makes no request for an actor_id with a query string" do
+      expect do
+        Apify.actors.run_sync_get_dataset_items(actor_id: "foo?token=x", input: input)
+      end.to raise_error(ArgumentError, /Invalid Apify actor_id/)
+
+      expect(WebMock).not_to have_requested(:post, /apify/)
+    end
   end
 end

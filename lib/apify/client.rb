@@ -4,6 +4,7 @@ require "json"
 require "httparty"
 require "net/http"
 require "openssl"
+require "erb"
 
 module Apify
   class Client
@@ -20,6 +21,8 @@ module Apify
       Net::HTTPBadResponse
     ].freeze
 
+    ACTOR_ID_FORMAT = /\A[\w.-]+(~[\w.-]+)?\z/
+
     def initialize(config: Config.config, retry_policy: nil)
       @config = config
       Config.validate!
@@ -28,7 +31,8 @@ module Apify
     end
 
     def post_sync_dataset_items(actor_id, input, read_timeout: nil)
-      path = "/actors/#{actor_id}/run-sync-get-dataset-items"
+      actor_id = validate_actor_id!(actor_id)
+      path = "/actors/#{ERB::Util.url_encode(actor_id)}/run-sync-get-dataset-items"
 
       @retry_policy.call(context: "Apify::Client#post_sync_dataset_items") do
         execute_post(path, input, read_timeout: read_timeout)
@@ -38,6 +42,13 @@ module Apify
     private
 
     attr_reader :config
+
+    def validate_actor_id!(actor_id)
+      actor_id = actor_id.to_s
+      return actor_id if actor_id.match?(ACTOR_ID_FORMAT)
+
+      raise ArgumentError, "Invalid Apify actor_id format: #{actor_id.inspect}"
+    end
 
     def execute_post(path, input, read_timeout:)
       response = post_request(path, input, read_timeout: read_timeout)
