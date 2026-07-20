@@ -34,6 +34,7 @@ Apify.configure do |config|
   # Optional: retry transient/rate-limit errors (default max_retries is 0)
   config.max_retries = 2
   config.retry_base_delay = 1
+  config.retry_max_delay = 30
 end
 ```
 
@@ -41,7 +42,7 @@ end
 
 Failed API responses are classified from HTTP status and Apify's `error.type` field (e.g. `rate-limit-exceeded` on HTTP 400) and raised as typed exceptions such as `Apify::AuthenticationError`, `Apify::BillingError`, `Apify::RateLimitError`, and `Apify::TransientError`.
 
-Retries are disabled by default. Set `config.max_retries` to enable exponential backoff for retryable errors.
+Retries are disabled by default. Set `config.max_retries` to enable exponential backoff for retryable errors. When Apify responds with a `Retry-After` header (e.g. on HTTP 429), the client waits that long instead of the computed backoff. Otherwise, retry delays use full jitter (a random value between 50% and 100% of the exponential backoff) to avoid thundering-herd retries across concurrent workers, and every wait is capped at `retry_max_delay` seconds.
 
 ## Configuration Options
 
@@ -53,6 +54,7 @@ Retries are disabled by default. Set `config.max_retries` to enable exponential 
 | `read_timeout` | Integer | `310` | Response read timeout in seconds |
 | `max_retries` | Integer | `0` | Number of retries for transient/rate-limit errors (0 disables retries) |
 | `retry_base_delay` | Integer | `1` | Base delay in seconds for exponential backoff between retries |
+| `retry_max_delay` | Integer | `30` | Maximum delay in seconds for a single retry wait, regardless of backoff or `Retry-After` |
 | `logger` | Object | `nil` | Logger used to record retry/error events |
 | `user_agent` | String | `"ApifyRuby/<version>"` | User-Agent header sent with requests |
 | `sleep_fn` | Proc | `->(seconds) { sleep(seconds) }` | Sleep implementation used between retries (override for testing) |
