@@ -98,6 +98,30 @@ RSpec.describe Apify::Actors do
       expect(WebMock).to have_requested(:post, sync_dataset_items_url).once
     end
 
+    it "raises transient error when connection is refused" do
+      stub_request(:post, sync_dataset_items_url)
+        .with(headers: { "Authorization" => "Bearer test-apify-token" })
+        .to_raise(Errno::ECONNREFUSED)
+
+      expect do
+        Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
+      end.to raise_error(Apify::TransientError)
+
+      expect(WebMock).to have_requested(:post, sync_dataset_items_url).once
+    end
+
+    it "raises transient error on socket error" do
+      stub_request(:post, sync_dataset_items_url)
+        .with(headers: { "Authorization" => "Bearer test-apify-token" })
+        .to_raise(SocketError)
+
+      expect do
+        Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
+      end.to raise_error(Apify::TransientError)
+
+      expect(WebMock).to have_requested(:post, sync_dataset_items_url).once
+    end
+
     context "with retries enabled" do
       before do
         Apify.reset!
@@ -159,6 +183,21 @@ RSpec.describe Apify::Actors do
 
         expect(items).to eq([profile])
         expect(WebMock).to have_requested(:post, sync_dataset_items_url).times(3)
+      end
+
+      it "retries on connection reset and succeeds on the next attempt" do
+        profile = { "fullName" => "Bill Gates", "linkedinUrl" => linkedin_url }
+
+        stub_request(:post, sync_dataset_items_url)
+          .with(headers: { "Authorization" => "Bearer test-apify-token" })
+          .to_raise(Errno::ECONNRESET)
+          .then
+          .to_return(status: 200, body: [profile].to_json)
+
+        items = Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
+
+        expect(items).to eq([profile])
+        expect(WebMock).to have_requested(:post, sync_dataset_items_url).twice
       end
 
       it "raises after exhausting retries on persistent HTTP 503" do
