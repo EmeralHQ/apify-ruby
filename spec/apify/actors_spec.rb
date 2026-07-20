@@ -26,6 +26,27 @@ RSpec.describe Apify::Actors do
       end.to raise_error(Apify::ConfigurationError, "API token is required")
     end
 
+    it "validates and uses the injected config instead of the global config" do
+      Apify.reset!
+      Apify.configure { |config| config.api_token = nil }
+
+      injected_config = Struct.new(
+        :api_token, :base_url, :open_timeout, :read_timeout,
+        :max_retries, :retry_base_delay, :logger, :user_agent, :sleep_fn
+      ).new(
+        "injected-token", ApifyHelpers::API_BASE, 10, 310, 0, 1, nil, "ApifyRuby/test", ->(_seconds) {}
+      )
+      profile = { "fullName" => "Bill Gates", "linkedinUrl" => linkedin_url }
+      stub_request(:post, sync_dataset_items_url)
+        .with(headers: { "Authorization" => "Bearer injected-token" })
+        .to_return(status: 200, body: [profile].to_json)
+
+      client = Apify::Client.new(config: injected_config)
+      items = client.post_sync_dataset_items(ApifyHelpers::ACTOR_ID, input)
+
+      expect(items).to eq([profile])
+    end
+
     it "raises authentication error when apify responds with 401" do
       stub_sync_dataset_items_error(status: 401, body: "Unauthorized")
 

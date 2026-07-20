@@ -25,7 +25,7 @@ module Apify
 
     def initialize(config: Config.config, retry_policy: nil)
       @config = config
-      Config.validate!
+      Config.validate!(@config)
       @retry_policy = retry_policy || RetryPolicy.new(config: config)
       self.class.base_uri(config.base_url)
     end
