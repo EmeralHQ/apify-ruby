@@ -87,7 +87,8 @@ module Apify
         ErrorClassifier.raise_from_response!(
           http_code: response.code,
           response_body: response.body,
-          fallback_message: "Apify API returned HTTP #{response.code}: #{response.body.to_s[0..200]}"
+          fallback_message: "Apify API returned HTTP #{response.code}: #{response.body.to_s[0..200]}",
+          retry_after: response.headers["retry-after"]
         )
       end
     end

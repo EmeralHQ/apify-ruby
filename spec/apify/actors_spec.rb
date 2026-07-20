@@ -174,6 +174,24 @@ RSpec.describe Apify::Actors do
         expect(WebMock).to have_requested(:post, sync_dataset_items_url).twice
       end
 
+      it "retries on HTTP 429 honoring the Retry-After header" do
+        sleeps = []
+        Apify.configure { |config| config.sleep_fn = ->(seconds) { sleeps << seconds } }
+        profile = { "fullName" => "Bill Gates", "linkedinUrl" => linkedin_url }
+
+        stub_request(:post, sync_dataset_items_url)
+          .with(headers: { "Authorization" => "Bearer test-apify-token" })
+          .to_return(status: 429, headers: { "Retry-After" => "3" }, body: "Too Many Requests")
+          .then
+          .to_return(status: 200, body: [profile].to_json)
+
+        items = Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
+
+        expect(items).to eq([profile])
+        expect(sleeps).to eq([3])
+        expect(WebMock).to have_requested(:post, sync_dataset_items_url).twice
+      end
+
       it "retries on HTTP 503 and succeeds on the next attempt" do
         profile = { "fullName" => "Bill Gates", "linkedinUrl" => linkedin_url }
 

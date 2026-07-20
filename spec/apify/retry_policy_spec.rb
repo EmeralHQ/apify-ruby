@@ -33,10 +33,11 @@ class RetryPolicySpecUnserializableBody
 end
 
 RSpec.describe Apify::RetryPolicy do
-  def build_config(max_retries:, retry_base_delay: 1, logger: nil, sleep_fn: ->(_seconds) {})
-    Struct.new(:max_retries, :retry_base_delay, :logger, :sleep_fn, keyword_init: true).new(
+  def build_config(max_retries:, retry_base_delay: 1, retry_max_delay: 30, logger: nil, sleep_fn: ->(_seconds) {})
+    Struct.new(:max_retries, :retry_base_delay, :retry_max_delay, :logger, :sleep_fn, keyword_init: true).new(
       max_retries: max_retries,
       retry_base_delay: retry_base_delay,
+      retry_max_delay: retry_max_delay,
       logger: logger,
       sleep_fn: sleep_fn
     )
@@ -47,26 +48,91 @@ RSpec.describe Apify::RetryPolicy do
   end
 
   describe "backoff" do
+    # Full jitter multiplies the capped exponential backoff by (0.5 + rand * 0.5).
+    # We stub #rand on the policy instance to make the resulting delays exact and
+    # deterministic instead of asserting ranges everywhere.
     it "sleeps with exponential backoff and re-raises after exhausting retries" do
       sleeps = []
       config = build_config(max_retries: 3, retry_base_delay: 1, sleep_fn: ->(seconds) { sleeps << seconds })
       policy = build_policy(config)
+      allow(policy).to receive(:rand).and_return(0.0)
 
       expect do
         policy.call { raise Apify::TransientError, "boom" }
       end.to raise_error(Apify::TransientError)
-      expect(sleeps).to eq([1, 2, 4])
+      expect(sleeps).to eq([0.5, 1, 2])
     end
 
     it "scales sleeps with a different base delay and retry count" do
       sleeps = []
       config = build_config(max_retries: 2, retry_base_delay: 2, sleep_fn: ->(seconds) { sleeps << seconds })
       policy = build_policy(config)
+      allow(policy).to receive(:rand).and_return(0.0)
 
       expect do
         policy.call { raise Apify::TransientError, "boom" }
       end.to raise_error(Apify::TransientError)
-      expect(sleeps).to eq([2, 4])
+      expect(sleeps).to eq([1, 2])
+    end
+
+    it "applies full jitter within the expected range of the capped backoff" do
+      sleeps = []
+      config = build_config(max_retries: 1, retry_base_delay: 4, sleep_fn: ->(seconds) { sleeps << seconds })
+      policy = build_policy(config)
+
+      expect do
+        policy.call { raise Apify::TransientError, "boom" }
+      end.to raise_error(Apify::TransientError)
+      expect(sleeps.length).to eq(1)
+      expect(sleeps[0]).to be_between(2.0, 4.0)
+    end
+
+    it "respects Retry-After exactly, without jitter" do
+      sleeps = []
+      attempts = 0
+      config = build_config(max_retries: 1, retry_base_delay: 1, sleep_fn: ->(seconds) { sleeps << seconds })
+      policy = build_policy(config)
+
+      result = policy.call do
+        attempts += 1
+        raise Apify::TransientError.new("boom", retry_after: 7) if attempts == 1
+
+        "ok"
+      end
+
+      expect(result).to eq("ok")
+      expect(sleeps).to eq([7])
+    end
+
+    it "caps Retry-After at retry_max_delay" do
+      sleeps = []
+      attempts = 0
+      config = build_config(max_retries: 1, retry_base_delay: 1, retry_max_delay: 30,
+                            sleep_fn: ->(seconds) { sleeps << seconds })
+      policy = build_policy(config)
+
+      result = policy.call do
+        attempts += 1
+        raise Apify::TransientError.new("boom", retry_after: 120) if attempts == 1
+
+        "ok"
+      end
+
+      expect(result).to eq("ok")
+      expect(sleeps).to eq([30])
+    end
+
+    it "caps exponential backoff at retry_max_delay" do
+      sleeps = []
+      config = build_config(max_retries: 1, retry_base_delay: 100, retry_max_delay: 10,
+                            sleep_fn: ->(seconds) { sleeps << seconds })
+      policy = build_policy(config)
+      allow(policy).to receive(:rand).and_return(1.0)
+
+      expect do
+        policy.call { raise Apify::TransientError, "boom" }
+      end.to raise_error(Apify::TransientError)
+      expect(sleeps).to eq([10])
     end
 
     it "runs the block once and re-raises immediately when max_retries is 0" do
@@ -101,6 +167,7 @@ RSpec.describe Apify::RetryPolicy do
       attempts = 0
       config = build_config(max_retries: 1, retry_base_delay: 1, sleep_fn: ->(seconds) { sleeps << seconds })
       policy = build_policy(config)
+      allow(policy).to receive(:rand).and_return(0.0)
 
       result = policy.call do
         attempts += 1
@@ -110,7 +177,7 @@ RSpec.describe Apify::RetryPolicy do
       end
 
       expect(result).to eq("success")
-      expect(sleeps).to eq([1])
+      expect(sleeps).to eq([0.5])
     end
   end
 

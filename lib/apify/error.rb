@@ -8,15 +8,20 @@ module Apify
   class ParseError < Error; end
 
   class ApiError < Error
-    attr_reader :status_code, :response_body, :error_type, :code
+    attr_reader :status_code, :response_body, :error_type, :code, :retry_after
 
-    def initialize(message, status_code: nil, response_body: nil, error_type: nil, code: "apify_error")
+    # rubocop:disable Metrics/ParameterLists -- retry_after adds a 6th keyword; splitting
+    # into an options hash would ripple through every subclass's initialize signature.
+    def initialize(message, status_code: nil, response_body: nil, error_type: nil, code: "apify_error",
+                   retry_after: nil)
       super(message)
       @status_code = status_code
       @response_body = response_body
       @error_type = error_type
       @code = code
+      @retry_after = retry_after
     end
+    # rubocop:enable Metrics/ParameterLists
 
     def retryable?
       false
