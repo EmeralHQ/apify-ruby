@@ -12,12 +12,13 @@ module Apify
     setting :read_timeout, default: 310
     setting :max_retries, default: 0
     setting :retry_base_delay, default: 1
+    setting :retry_max_delay, default: 30
     setting :logger, default: nil
     setting :user_agent, default: "ApifyRuby/#{Apify::VERSION}"
     setting :sleep_fn, default: ->(seconds) { sleep(seconds) }
 
-    def self.validate!
-      raise ConfigurationError, "API token is required" if config.api_token.to_s.strip.empty?
+    def self.validate!(target = config)
+      raise ConfigurationError, "API token is required" if target.api_token.to_s.strip.empty?
     end
   end
 end

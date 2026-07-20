@@ -51,7 +51,7 @@ module Apify
         }
       end
 
-      def raise_from_response!(http_code:, response_body:, fallback_message: nil)
+      def raise_from_response!(http_code:, response_body:, fallback_message: nil, retry_after: nil)
         parsed_error = parse_error_body(response_body)
         message = parsed_error&.dig(:message) || fallback_message ||
                   "Apify API returned HTTP #{http_code}"
@@ -69,13 +69,25 @@ module Apify
 
         if classification[:retryable]
           exception_class = retry_exception_class(http_code: http_code, error_type: error_type)
-          raise exception_class.new(message, code: classification[:code], **options)
+          raise exception_class.new(message, code: classification[:code], retry_after: parse_retry_after(retry_after),
+                                             **options)
         end
 
         raise exception_for_code(classification[:code], message, **options)
       end
 
       private
+
+      # Retry-After puede ser segundos ("30") o una fecha HTTP (RFC 7231).
+      # Solo soportamos el formato de segundos; una fecha se trata como nil
+      # (backoff_for calculará el delay como si no hubiera header).
+      def parse_retry_after(value)
+        return nil if value.nil?
+
+        Float(value)
+      rescue ArgumentError, TypeError
+        nil
+      end
 
       def retry_exception_class(http_code:, error_type:)
         if rate_limit_error?(http_code: http_code.to_i, error_type: error_type)

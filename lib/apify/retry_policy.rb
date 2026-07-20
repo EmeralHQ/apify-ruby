@@ -16,8 +16,9 @@ module Apify
         log_error(context: context, error: e)
         raise if attempts > @config.max_retries
 
-        warn_retry(context: context, attempt: attempts, backoff_seconds: backoff_for(attempts))
-        @config.sleep_fn.call(backoff_for(attempts))
+        delay = delay_for(e, attempts)
+        warn_retry(context: context, attempt: attempts, backoff_seconds: delay)
+        @config.sleep_fn.call(delay)
         retry
       end
     end
@@ -26,6 +27,13 @@ module Apify
 
     def backoff_for(attempts)
       @config.retry_base_delay * (2**(attempts - 1))
+    end
+
+    def delay_for(error, attempts)
+      base = error.respond_to?(:retry_after) && error.retry_after ? error.retry_after : backoff_for(attempts)
+      capped = [base, @config.retry_max_delay].min
+      # full jitter sobre el backoff exponencial; Retry-After se respeta sin jitter
+      error.retry_after ? capped : (capped * (0.5 + (rand * 0.5)))
     end
 
     def log_error(context:, error:)

@@ -1,14 +1,12 @@
 # frozen_string_literal: true
 
 require "json"
-require "httparty"
 require "net/http"
 require "openssl"
+require "erb"
 
 module Apify
   class Client
-    include HTTParty
-
     NETWORK_ERRORS = [
       Errno::ECONNREFUSED,
       Errno::ECONNRESET,
@@ -20,15 +18,17 @@ module Apify
       Net::HTTPBadResponse
     ].freeze
 
+    ACTOR_ID_FORMAT = /\A[\w.-]+(~[\w.-]+)?\z/
+
     def initialize(config: Config.config, retry_policy: nil)
       @config = config
-      Config.validate!
+      Config.validate!(@config)
       @retry_policy = retry_policy || RetryPolicy.new(config: config)
-      self.class.base_uri(config.base_url)
     end
 
     def post_sync_dataset_items(actor_id, input, read_timeout: nil)
-      path = "/actors/#{actor_id}/run-sync-get-dataset-items"
+      actor_id = validate_actor_id!(actor_id)
+      path = "/actors/#{ERB::Util.url_encode(actor_id)}/run-sync-get-dataset-items"
 
       @retry_policy.call(context: "Apify::Client#post_sync_dataset_items") do
         execute_post(path, input, read_timeout: read_timeout)
@@ -38,6 +38,13 @@ module Apify
     private
 
     attr_reader :config
+
+    def validate_actor_id!(actor_id)
+      actor_id = actor_id.to_s
+      return actor_id if actor_id.match?(ACTOR_ID_FORMAT)
+
+      raise ArgumentError, "Invalid Apify actor_id format: #{actor_id.inspect}"
+    end
 
     def execute_post(path, input, read_timeout:)
       response = post_request(path, input, read_timeout: read_timeout)
@@ -51,13 +58,24 @@ module Apify
     end
 
     def post_request(path, input, read_timeout:)
-      self.class.post(
-        path,
-        headers: request_headers,
-        body: input.to_json,
-        timeout: read_timeout || config.read_timeout,
-        open_timeout: config.open_timeout
-      )
+      uri = build_uri(path)
+      http = build_http(uri, read_timeout: read_timeout)
+
+      request = Net::HTTP::Post.new(uri.request_uri, request_headers)
+      request.body = input.to_json
+      http.request(request)
+    end
+
+    def build_uri(path)
+      URI.join("#{config.base_url.to_s.chomp("/")}/", path.sub(%r{\A/}, ""))
+    end
+
+    def build_http(uri, read_timeout:)
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = uri.scheme == "https"
+      http.open_timeout = config.open_timeout
+      http.read_timeout = read_timeout || config.read_timeout
+      http
     end
 
     def request_headers
@@ -69,14 +87,16 @@ module Apify
     end
 
     def handle_response(response)
-      case response.code
+      code = response.code.to_i
+      case code
       when 200..299
         parse_success_body(response.body)
       else
         ErrorClassifier.raise_from_response!(
-          http_code: response.code,
+          http_code: code,
           response_body: response.body,
-          fallback_message: "Apify API returned HTTP #{response.code}: #{response.body.to_s[0..200]}"
+          fallback_message: "Apify API returned HTTP #{code}: #{response.body.to_s[0..200]}",
+          retry_after: response["Retry-After"]
         )
       end
     end
