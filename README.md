@@ -38,6 +38,8 @@ Apify.configure do |config|
 end
 ```
 
+`Apify.configure` must run before the first call to `Apify.client` or `Apify.actors`, since those memoize a client built from the config at that time (this is why it belongs in a Rails initializer, which runs once at boot). Calling `configure` again afterwards does **not** retroactively change the memoized client. To pick up new configuration at runtime, call `Apify.reset!` first, then `configure` again — `Apify.client`/`Apify.actors` will rebuild from the current config on next access.
+
 ## Errors
 
 Failed API responses are classified from HTTP status and Apify's `error.type` field (e.g. `rate-limit-exceeded` on HTTP 400) and raised as typed exceptions such as `Apify::AuthenticationError`, `Apify::BillingError`, `Apify::RateLimitError`, and `Apify::TransientError`.

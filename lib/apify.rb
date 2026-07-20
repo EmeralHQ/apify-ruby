@@ -11,6 +11,11 @@ require_relative "apify/error"
 
 module Apify
   class << self
+    # Non-reentrant Mutex: `actors` must not call the public `client` method
+    # from inside the lock (that would deadlock), so it builds @client itself.
+    LOCK = Mutex.new
+    private_constant :LOCK
+
     def configure(&)
       Config.configure(&)
     end
@@ -20,16 +25,18 @@ module Apify
     end
 
     def client
-      @client ||= Client.new
+      LOCK.synchronize { @client ||= Client.new }
     end
 
     def actors
-      @actors ||= Actors.new(client)
+      LOCK.synchronize { @actors ||= Actors.new(@client ||= Client.new) }
     end
 
     def reset!
-      @client = nil
-      @actors = nil
+      LOCK.synchronize do
+        @client = nil
+        @actors = nil
+      end
     end
   end
 end

@@ -27,7 +27,6 @@ module Apify
       @config = config
       Config.validate!(@config)
       @retry_policy = retry_policy || RetryPolicy.new(config: config)
-      self.class.base_uri(config.base_url)
     end
 
     def post_sync_dataset_items(actor_id, input, read_timeout: nil)
@@ -63,7 +62,7 @@ module Apify
 
     def post_request(path, input, read_timeout:)
       self.class.post(
-        path,
+        "#{config.base_url.to_s.chomp("/")}#{path}",
         headers: request_headers,
         body: input.to_json,
         timeout: read_timeout || config.read_timeout,
