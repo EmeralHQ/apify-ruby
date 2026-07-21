@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Treat empty sync dataset responses (`[]` / blank body) as retryable; return `[]` after retries are exhausted or when `max_retries` is 0
+
 ## [0.2.0] - 2026-07-10
 
 - Add `Apify::Client` with Bearer auth and configurable timeouts

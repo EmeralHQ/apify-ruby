@@ -33,6 +33,8 @@ module Apify
       @retry_policy.call(context: "Apify::Client#post_sync_dataset_items") do
         execute_post(path, input, read_timeout: read_timeout)
       end
+    rescue EmptyResultError
+      []
     end
 
     private
@@ -90,7 +92,7 @@ module Apify
       code = response.code.to_i
       case code
       when 200..299
-        parse_success_body(response.body)
+        parse_success_body(response.body, status_code: code)
       else
         ErrorClassifier.raise_from_response!(
           http_code: code,
@@ -101,15 +103,24 @@ module Apify
       end
     end
 
-    def parse_success_body(body)
-      return [] if body.nil? || body.to_s.strip.empty?
+    def parse_success_body(body, status_code:)
+      raise_empty_result!(status_code: status_code) if body.nil? || body.to_s.strip.empty?
 
       parsed = JSON.parse(body)
       raise ParseError, "Unexpected response format from Apify" unless parsed.is_a?(Array)
 
+      raise_empty_result!(status_code: status_code) if parsed.empty?
+
       parsed
     rescue JSON::ParserError => e
       raise ParseError, "Invalid JSON response from Apify: #{e.message}"
+    end
+
+    def raise_empty_result!(status_code:)
+      raise EmptyResultError.new(
+        "Actor finished with no dataset items",
+        status_code: status_code
+      )
     end
   end
 end

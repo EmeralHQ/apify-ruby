@@ -36,6 +36,19 @@ module Apify
 
   class RateLimitError < TransientError; end
 
+  class EmptyResultError < TransientError
+    def initialize(message = "Actor finished with no dataset items", status_code: nil, response_body: nil,
+                   error_type: nil)
+      super(
+        message,
+        status_code: status_code,
+        response_body: response_body,
+        error_type: error_type,
+        code: "empty_result"
+      )
+    end
+  end
+
   class AuthenticationError < ApiError
     def initialize(message = "Authentication failed", status_code: 401, response_body: nil, error_type: nil)
       super(

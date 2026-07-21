@@ -44,7 +44,7 @@ end
 
 Failed API responses are classified from HTTP status and Apify's `error.type` field (e.g. `rate-limit-exceeded` on HTTP 400) and raised as typed exceptions such as `Apify::AuthenticationError`, `Apify::BillingError`, `Apify::RateLimitError`, and `Apify::TransientError`.
 
-Retries are disabled by default. Set `config.max_retries` to enable exponential backoff for retryable errors. When Apify responds with a `Retry-After` header (e.g. on HTTP 429), the client waits that long instead of the computed backoff. Otherwise, retry delays use full jitter (a random value between 50% and 100% of the exponential backoff) to avoid thundering-herd retries across concurrent workers, and every wait is capped at `retry_max_delay` seconds.
+Retries are disabled by default. Set `config.max_retries` to enable exponential backoff for retryable errors (including empty dataset responses). After retries are exhausted—or when `max_retries` is 0—an empty dataset is returned as `[]` rather than raised to the caller. When Apify responds with a `Retry-After` header (e.g. on HTTP 429), the client waits that long instead of the computed backoff. Otherwise, retry delays use full jitter (a random value between 50% and 100% of the exponential backoff) to avoid thundering-herd retries across concurrent workers, and every wait is capped at `retry_max_delay` seconds.
 
 ## Configuration Options
 
@@ -69,6 +69,7 @@ items = Apify.actors.run_sync_get_dataset_items(
   input:    { profileUrls: ["https://www.linkedin.com/in/example"] }
 )
 # => [{ "fullName" => "...", ... }]  # raw Apify dataset items
+# => []                              # empty after retries when the actor finished with no results
 ```
 
 ## Development
