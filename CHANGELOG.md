@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-22
+
+- Add `config.run_timeout_secs` and a per-call `run_timeout_secs:` kwarg; when set, pass Apify's `timeout` query param on `run-sync-get-dataset-items` so the actor is cancelled server-side (keep below `read_timeout`)
 - Treat empty sync dataset responses (`[]` / blank body) as retryable; return `[]` after retries are exhausted or when `max_retries` is 0
 
 ## [0.2.0] - 2026-07-10

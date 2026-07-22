@@ -4,6 +4,7 @@ require "json"
 require "net/http"
 require "openssl"
 require "erb"
+require "uri"
 
 module Apify
   class Client
@@ -26,9 +27,9 @@ module Apify
       @retry_policy = retry_policy || RetryPolicy.new(config: config)
     end
 
-    def post_sync_dataset_items(actor_id, input, read_timeout: nil)
+    def post_sync_dataset_items(actor_id, input, read_timeout: nil, run_timeout_secs: nil)
       actor_id = validate_actor_id!(actor_id)
-      path = "/actors/#{ERB::Util.url_encode(actor_id)}/run-sync-get-dataset-items"
+      path = sync_dataset_items_path(actor_id, run_timeout_secs: run_timeout_secs)
 
       @retry_policy.call(context: "Apify::Client#post_sync_dataset_items") do
         execute_post(path, input, read_timeout: read_timeout)
@@ -46,6 +47,14 @@ module Apify
       return actor_id if actor_id.match?(ACTOR_ID_FORMAT)
 
       raise ArgumentError, "Invalid Apify actor_id format: #{actor_id.inspect}"
+    end
+
+    def sync_dataset_items_path(actor_id, run_timeout_secs:)
+      path = "/actors/#{ERB::Util.url_encode(actor_id)}/run-sync-get-dataset-items"
+      timeout = run_timeout_secs.nil? ? config.run_timeout_secs : run_timeout_secs
+      return path if timeout.nil?
+
+      "#{path}?#{URI.encode_www_form("timeout" => Integer(timeout))}"
     end
 
     def execute_post(path, input, read_timeout:)

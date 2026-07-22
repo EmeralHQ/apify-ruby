@@ -10,6 +10,9 @@ module Apify
     setting :base_url, default: "https://api.apify.com/v2"
     setting :open_timeout, default: 10
     setting :read_timeout, default: 310
+    # Apify server-side run timeout (seconds) for run-sync-get-dataset-items (?timeout=).
+    # Keep below read_timeout so Apify cancels the run before the client aborts.
+    setting :run_timeout_secs, default: nil
     setting :max_retries, default: 0
     setting :retry_base_delay, default: 1
     setting :retry_max_delay, default: 30
