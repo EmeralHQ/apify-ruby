@@ -30,6 +30,9 @@ require "apify"
 Apify.configure do |config|
   config.api_token = ENV.fetch("APIFY_API_TOKEN")
   config.read_timeout = 310
+  # Optional: cancel the actor run on Apify's side (seconds). Keep below read_timeout
+  # so Apify aborts before the client Net::HTTP read timeout (e.g. 13 with read_timeout 15).
+  # config.run_timeout_secs = 13
   config.logger = Rails.logger
   # Optional: retry transient/rate-limit errors (default max_retries is 0)
   config.max_retries = 2
@@ -53,7 +56,8 @@ Retries are disabled by default. Set `config.max_retries` to enable exponential 
 | `api_token` | String | `nil` | **Required.** Your Apify API token |
 | `base_url` | String | `"https://api.apify.com/v2"` | Apify API base URL |
 | `open_timeout` | Integer | `10` | Connection open timeout in seconds |
-| `read_timeout` | Integer | `310` | Response read timeout in seconds |
+| `read_timeout` | Integer | `310` | Client-side response read timeout in seconds (`Net::HTTP`) |
+| `run_timeout_secs` | Integer | `nil` | Apify server-side run timeout (`?timeout=` on sync). When set, keep **below** `read_timeout` so Apify cancels the run before the client aborts |
 | `max_retries` | Integer | `0` | Number of retries for transient/rate-limit errors (0 disables retries) |
 | `retry_base_delay` | Integer | `1` | Base delay in seconds for exponential backoff between retries |
 | `retry_max_delay` | Integer | `30` | Maximum delay in seconds for a single retry wait, regardless of backoff or `Retry-After` |
@@ -67,6 +71,8 @@ Retries are disabled by default. Set `config.max_retries` to enable exponential 
 items = Apify.actors.run_sync_get_dataset_items(
   actor_id: "dev_fusion~linkedin-profile-scraper",
   input:    { profileUrls: ["https://www.linkedin.com/in/example"] }
+  # Optional per-call override (wins over config.run_timeout_secs):
+  # run_timeout_secs: 13
 )
 # => [{ "fullName" => "...", ... }]  # raw Apify dataset items
 # => []                              # empty after retries when the actor finished with no results

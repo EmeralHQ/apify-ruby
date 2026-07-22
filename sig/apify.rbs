@@ -19,13 +19,13 @@ module Apify
 
     def initialize: (?config: untyped, ?retry_policy: RetryPolicy?) -> void
 
-    def post_sync_dataset_items: (untyped actor_id, Hash[untyped, untyped] input, ?read_timeout: Numeric?) -> Array[Hash[String, untyped]]
+    def post_sync_dataset_items: (untyped actor_id, Hash[untyped, untyped] input, ?read_timeout: Numeric?, ?run_timeout_secs: Numeric?) -> Array[Hash[String, untyped]]
   end
 
   class Actors
     def initialize: (Client client) -> void
 
-    def run_sync_get_dataset_items: (actor_id: untyped, input: Hash[untyped, untyped], ?read_timeout: Numeric?) -> Array[Hash[String, untyped]]
+    def run_sync_get_dataset_items: (actor_id: untyped, input: Hash[untyped, untyped], ?read_timeout: Numeric?, ?run_timeout_secs: Numeric?) -> Array[Hash[String, untyped]]
   end
 
   class RetryPolicy

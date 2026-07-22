@@ -8,10 +8,10 @@ RSpec.describe Apify::Actors do
   # to return a profile unique to that host, and returns [client, profile].
   def client_and_profile_for(base_url:, token:)
     config_struct = Struct.new(
-      :api_token, :base_url, :open_timeout, :read_timeout, :max_retries,
+      :api_token, :base_url, :open_timeout, :read_timeout, :run_timeout_secs, :max_retries,
       :retry_base_delay, :retry_max_delay, :logger, :user_agent, :sleep_fn
     )
-    config = config_struct.new(token, base_url, 10, 310, 0, 1, 30, nil, "ApifyRuby/test", ->(_seconds) {})
+    config = config_struct.new(token, base_url, 10, 310, nil, 0, 1, 30, nil, "ApifyRuby/test", ->(_seconds) {})
     profile = { "fullName" => "Profile for #{base_url}" }
     url = "#{base_url}/actors/#{ApifyHelpers::ACTOR_ID}/run-sync-get-dataset-items"
     stub_request(:post, url)
@@ -72,10 +72,10 @@ RSpec.describe Apify::Actors do
       Apify.configure { |config| config.api_token = nil }
 
       injected_config = Struct.new(
-        :api_token, :base_url, :open_timeout, :read_timeout, :max_retries,
+        :api_token, :base_url, :open_timeout, :read_timeout, :run_timeout_secs, :max_retries,
         :retry_base_delay, :retry_max_delay, :logger, :user_agent, :sleep_fn
       ).new(
-        "injected-token", ApifyHelpers::API_BASE, 10, 310, 0, 1, 30, nil, "ApifyRuby/test", ->(_seconds) {}
+        "injected-token", ApifyHelpers::API_BASE, 10, 310, nil, 0, 1, 30, nil, "ApifyRuby/test", ->(_seconds) {}
       )
       profile = { "fullName" => "Bill Gates", "linkedinUrl" => linkedin_url }
       stub_request(:post, sync_dataset_items_url)
@@ -359,6 +359,78 @@ RSpec.describe Apify::Actors do
       end.to raise_error(ArgumentError, /Invalid Apify actor_id/)
 
       expect(WebMock).not_to have_requested(:post, /apify/)
+    end
+
+    context "with run_timeout_secs" do
+      it "omits the timeout query when neither config nor kwarg is set" do
+        profile = { "fullName" => "Bill Gates", "linkedinUrl" => linkedin_url }
+        stub_sync_dataset_items_success(body: [profile].to_json)
+
+        described_class.new(Apify.client).run_sync_get_dataset_items(
+          actor_id: ApifyHelpers::ACTOR_ID,
+          input: input
+        )
+
+        expect(WebMock).to have_requested(:post, sync_dataset_items_url).once
+        expect(WebMock).not_to have_requested(:post, sync_dataset_items_url(timeout: 13))
+      end
+
+      it "passes config.run_timeout_secs as the timeout query param" do
+        Apify.reset!
+        Apify.configure do |config|
+          config.api_token = "test-apify-token"
+          config.run_timeout_secs = 13
+        end
+        profile = { "fullName" => "Bill Gates", "linkedinUrl" => linkedin_url }
+        stub_sync_dataset_items_success(body: [profile].to_json, timeout: 13)
+
+        items = Apify.actors.run_sync_get_dataset_items(
+          actor_id: ApifyHelpers::ACTOR_ID,
+          input: input
+        )
+
+        expect(items).to eq([profile])
+        expect(WebMock).to have_requested(:post, sync_dataset_items_url(timeout: 13)).once
+      end
+
+      it "lets the per-call run_timeout_secs kwarg override config" do
+        Apify.reset!
+        Apify.configure do |config|
+          config.api_token = "test-apify-token"
+          config.run_timeout_secs = 13
+        end
+        profile = { "fullName" => "Bill Gates", "linkedinUrl" => linkedin_url }
+        stub_sync_dataset_items_success(body: [profile].to_json, timeout: 20)
+
+        items = Apify.actors.run_sync_get_dataset_items(
+          actor_id: ApifyHelpers::ACTOR_ID,
+          input: input,
+          run_timeout_secs: 20
+        )
+
+        expect(items).to eq([profile])
+        expect(WebMock).to have_requested(:post, sync_dataset_items_url(timeout: 20)).once
+        expect(WebMock).not_to have_requested(:post, sync_dataset_items_url(timeout: 13))
+      end
+
+      it "falls back to config when the per-call kwarg is nil" do
+        Apify.reset!
+        Apify.configure do |config|
+          config.api_token = "test-apify-token"
+          config.run_timeout_secs = 13
+        end
+        profile = { "fullName" => "Bill Gates", "linkedinUrl" => linkedin_url }
+        stub_sync_dataset_items_success(body: [profile].to_json, timeout: 13)
+
+        items = Apify.actors.run_sync_get_dataset_items(
+          actor_id: ApifyHelpers::ACTOR_ID,
+          input: input,
+          run_timeout_secs: nil
+        )
+
+        expect(items).to eq([profile])
+        expect(WebMock).to have_requested(:post, sync_dataset_items_url(timeout: 13)).once
+      end
     end
   end
 end

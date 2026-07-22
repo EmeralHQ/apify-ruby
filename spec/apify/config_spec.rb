@@ -5,6 +5,10 @@ RSpec.describe Apify::Config do
     expect(described_class.settings[:max_retries].default).to eq(0)
   end
 
+  it "defaults run_timeout_secs to nil" do
+    expect(described_class.settings[:run_timeout_secs].default).to be_nil
+  end
+
   describe ".validate!" do
     it "raises when api token is missing" do
       described_class.configure do |config|
