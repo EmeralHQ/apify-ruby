@@ -34,6 +34,30 @@ RSpec.describe Apify::Actors do
       expect(items).to eq([profile])
     end
 
+    it "returns empty array when dataset is empty and retries are disabled" do
+      stub_sync_dataset_items_success(body: [].to_json)
+
+      items = described_class.new(Apify.client).run_sync_get_dataset_items(
+        actor_id: ApifyHelpers::ACTOR_ID,
+        input: input
+      )
+
+      expect(items).to eq([])
+      expect(WebMock).to have_requested(:post, sync_dataset_items_url).once
+    end
+
+    it "returns empty array when response body is blank and retries are disabled" do
+      stub_sync_dataset_items_success(body: "")
+
+      items = described_class.new(Apify.client).run_sync_get_dataset_items(
+        actor_id: ApifyHelpers::ACTOR_ID,
+        input: input
+      )
+
+      expect(items).to eq([])
+      expect(WebMock).to have_requested(:post, sync_dataset_items_url).once
+    end
+
     it "raises configuration error when api token is missing" do
       Apify.reset!
       Apify.configure { |config| config.api_token = nil }
@@ -281,6 +305,34 @@ RSpec.describe Apify::Actors do
           expect(error.message).to include("HTTP 503")
         }
 
+        expect(WebMock).to have_requested(:post, sync_dataset_items_url).times(3)
+      end
+
+      it "retries on empty dataset and succeeds on a later attempt" do
+        profile = { "fullName" => "Bill Gates", "linkedinUrl" => linkedin_url }
+
+        stub_request(:post, sync_dataset_items_url)
+          .with(headers: { "Authorization" => "Bearer test-apify-token" })
+          .to_return(status: 201, body: [].to_json)
+          .then
+          .to_return(status: 201, body: [].to_json)
+          .then
+          .to_return(status: 201, body: [profile].to_json)
+
+        items = Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
+
+        expect(items).to eq([profile])
+        expect(WebMock).to have_requested(:post, sync_dataset_items_url).times(3)
+      end
+
+      it "returns empty array after exhausting retries on empty dataset" do
+        stub_request(:post, sync_dataset_items_url)
+          .with(headers: { "Authorization" => "Bearer test-apify-token" })
+          .to_return(status: 201, body: [].to_json)
+
+        items = Apify.actors.run_sync_get_dataset_items(actor_id: ApifyHelpers::ACTOR_ID, input: input)
+
+        expect(items).to eq([])
         expect(WebMock).to have_requested(:post, sync_dataset_items_url).times(3)
       end
     end
