@@ -7,6 +7,17 @@ on:
 
   pull_request:
 
+# Solo lectura del repo: la CI no escribe nada. Publicar es un acto explícito
+# (tag + rake release), nunca un efecto de mergear.
+permissions:
+  contents: read
+
+# Un push nuevo al mismo PR cancela la corrida anterior; en main se dejan
+# terminar todas para no perder el historial de checks.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
