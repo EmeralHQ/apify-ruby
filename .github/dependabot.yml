@@ -1,0 +1,33 @@
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+updates:
+  # Las actions se referencian por tag mutable (@v4): sin esto, un major nuevo
+  # pasa desapercibido y un tag movido entra sin revisión.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"
+    labels: [ dependencies, ci ]
+
+  # Gemfile.lock está versionado, así que acá se actualiza el lock; los rangos
+  # del gemspec (dry-configurable, zeitwerk) solo se tocan si el lock no alcanza.
+  - package-ecosystem: bundler
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(deps)"
+    labels: [ dependencies ]
+    groups:
+      # Las dev deps no afectan a quien instala el gem: una sola PR mensual.
+      # Las runtime (dry-configurable, zeitwerk) quedan sueltas a propósito,
+      # para revisar cada bump aislado.
+      dev-and-test:
+        patterns:
+          - "rubocop*"
+          - "rspec*"
+          - "webmock"
+          - "rake"
+          - "irb"
